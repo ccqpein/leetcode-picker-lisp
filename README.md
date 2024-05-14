@@ -16,10 +16,18 @@ The vault path will hardcode in lisp image after compiling.
 
 Token and session value will hardcode inside lisp image, but the cache will stay in value folder.
 
-## Usage ##
+## Install ##
 
 `./make.sh`
 
-Will generate the lisp image named `leetcode-picker`
+Will generate the executive lisp image named `leetcode-picker`
 
-`leetcode-picker 3075` will get the quiz 3075 from leetcode and generate the `README.md` in **current path**
+## Usage ##
+
+> leetcode-picker get-description -n 3075 -o ./README.md
+
+will get the quiz 3075 from leetcode and generate markdown content in the `README.md` in **current path**
+
+> leetcode-picker --help
+
+shows more help

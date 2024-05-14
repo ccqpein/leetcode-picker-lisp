@@ -113,8 +113,8 @@
     (cl-ppcre:regex-replace-all "</{0,1}ul>" <> "")
     ))
 
-(defun write-readme (describe link)
-  (with-open-file (file (pathname (format nil "~a/README.md" (sb-posix:getcwd)))
+(defun write-description-to-md-file (file describe link)
+  (with-open-file (file (pathname (format nil "~a/~a" (sb-posix:getcwd) file))
                         :direction :output
                         :if-exists :supersede
                         :if-does-not-exist :create)
@@ -128,24 +128,61 @@
             link describe)
     ))
 
-(defun main (&optional id)
-  (unless id (setf id (the fixnum (parse-integer (cadr sb-ext:*posix-argv*)))))
+(defun get-quiz-cli-options ()
+  `(,(clingon:make-option
+      :integer
+      :description "the id of quiz"
+      :short-name #\n
+      :long-name "id"
+      :required t
+      :key :id
+      )
+    ,(clingon:make-option
+      :string
+      :description "output file"
+      :short-name #\o
+      :long-name "output"
+      :key :output
+      )))
 
+(defun get-quiz-description-cli-handler (cmd)
+  (let ((id (clingon:getopt cmd :id))
+        (output (clingon:getopt cmd :output)))
+    
+    (let (title-slug
+          describe)
+      (handler-case (fetch-quiz-description-by-id id)
+        (error ()
+          ;; let fetch-all-quiz-list do again and update the cache file
+          (setf *leetcode-all-quiz* nil) 
+          (fetch-quiz-description-by-id id))
+        (:no-error (title) (setf title-slug title)))
+
+      (setf describe (fetch-question-description title-slug))
+
+      (if output
+          (write-description-to-md-file
+           output
+           (describe-clean describe)
+           (format nil "https://leetcode.com/problems/~a/" title-slug))
+          (format t (describe-clean describe))))
+    ))
+
+(defun leetcode-picker-cli ()
+  (clingon:make-command
+   :name "leetcode-picker"
+   :description "pick the leetcode quiz"
+   :version "0.1.0"
+   :handler (lambda (cmd) (clingon:print-usage-and-exit cmd t))
+   :sub-commands `(,(clingon:make-command
+                     :name "get-description"
+                     :description "pick the description of leetcode quiz"
+                     :options (get-quiz-cli-options)
+                     :handler #'get-quiz-description-cli-handler
+                     ))))
+
+(defun main ()
   ;; restore cache
   ;; only error is cache isn't create yet
   (ignore-errors (restore-all-quiz-from-file *leetcode-all-quiz-cache-path*))
-
-  (let (title-slug
-        describe)
-    (handler-case (fetch-quiz-description-by-id id)
-      (error ()
-        ;; let fetch-all-quiz-list do again and update the cache file
-        (setf *leetcode-all-quiz* nil) 
-        (fetch-quiz-description-by-id id))
-      (:no-error (title) (setf title-slug title)))
-
-    (setf describe (fetch-question-description title-slug))
-
-    (write-readme (describe-clean describe)
-                  (format nil "https://leetcode.com/problems/~a/" title-slug))
-    ))
+  (clingon:run (leetcode-picker-cli)))

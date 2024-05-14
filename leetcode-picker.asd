@@ -6,7 +6,7 @@
 (in-package #:leetcode-picker-sys)
 
 (defsystem leetcode-picker
-  :defsystem-depends-on ("yason" "cl-ppcre" "arrow-macros")
+  :defsystem-depends-on ("yason" "cl-ppcre" "arrow-macros" "clingon")
   :components ((:file main))
   :build-operation "program-op"
   :build-pathname "leetcode-picker"
