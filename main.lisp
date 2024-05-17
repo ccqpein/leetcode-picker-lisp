@@ -46,11 +46,13 @@
       (setf *leetcode-all-quiz* all-stat-status-pairs) ;; cache it in memory
 
       ;; cache in file 
-      (if cache-file (with-open-file (file (merge-pathnames *leetcode-all-quiz-cache-path*)
-                                           :direction :output
-                                           :if-exists :supersede
-                                           :if-does-not-exist :create)
-                       (yason:encode *leetcode-all-quiz* file)))
+      (if cache-file (prog1
+                         (with-open-file (file (merge-pathnames *leetcode-all-quiz-cache-path*)
+                                               :direction :output
+                                               :if-exists :supersede
+                                               :if-does-not-exist :create)
+                           (yason:encode *leetcode-all-quiz* file))
+                       (format t "generate cache in ~a~%" (merge-pathnames *leetcode-all-quiz-cache-path*))))
       
       all-stat-status-pairs)))
 
@@ -79,7 +81,7 @@
                         :error nil)
     (let* ((response (get-output-stream-string out))
            (json-response (yason:parse response)))
-      (gethash "content" (gethash "question" (gethash "data" json-response))))))
+      (the string (gethash "content" (gethash "question" (gethash "data" json-response)))))))
 
 (defun fetch-quiz-description-by-id (id)
   (declare (fixnum id))
@@ -111,6 +113,8 @@
     
     (cl-ppcre:regex-replace-all "((</sup>)|(</li>))" <> "")
     (cl-ppcre:regex-replace-all "</{0,1}ul>" <> "")
+
+    (cl-ppcre:regex-replace-all "&#39;" <> "'")
     ))
 
 (defun write-description-to-md-file (file describe link)
@@ -128,7 +132,14 @@
             link describe)
     ))
 
-(defun get-quiz-cli-options ()
+(defun pick-one-quiz (&key difficult)
+  (let ((all-quiz-list (if *leetcode-all-quiz*
+                           *leetcode-all-quiz*
+                           (fetch-all-quiz-list :cache-file t))))
+    
+    ))
+
+(defun get-quiz-description-cli-options ()
   `(,(clingon:make-option
       :integer
       :description "the id of quiz"
@@ -143,9 +154,22 @@
       :short-name #\o
       :long-name "output"
       :key :output
-      )))
+      )
+    ,(clingon:make-option
+      :flag
+      :description "refresh the all quiz cache"
+      :short-name #\r
+      :long-name "refresh"
+      :key :refresh)))
+
+(defun refresh-quiz-cache-cli (cmd)
+  (when (clingon:getopt cmd :refresh)
+    (fetch-all-quiz-list :cache-file t)
+    ))
 
 (defun get-quiz-description-cli-handler (cmd)
+  (refresh-quiz-cache-cli cmd)
+  
   (let ((id (clingon:getopt cmd :id))
         (output (clingon:getopt cmd :output)))
     
@@ -165,7 +189,7 @@
            output
            (describe-clean describe)
            (format nil "https://leetcode.com/problems/~a/" title-slug))
-          (format t (describe-clean describe))))
+          (format t "~a" (describe-clean describe))))
     ))
 
 (defun leetcode-picker-cli ()
@@ -177,7 +201,7 @@
    :sub-commands `(,(clingon:make-command
                      :name "get-description"
                      :description "pick the description of leetcode quiz"
-                     :options (get-quiz-cli-options)
+                     :options (get-quiz-description-cli-options)
                      :handler #'get-quiz-description-cli-handler
                      ))))
 
