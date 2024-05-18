@@ -30,6 +30,8 @@
     ))
 
 (defun fetch-all-quiz-list (&key cache-file)
+  "fetch tha all quiz list from leetcode with token and session.
+when :cache-file is t, write all list in cache file for future use"
   (let ((out (make-string-output-stream)))
     (sb-ext:run-program "curl" `(,*leetcode-all-quiz-url*
                                  "-H" ,(format nil "Cookie: csrftoken=~a;LEETCODE_SESSION=~a"
@@ -66,6 +68,15 @@
     (the fixnum (gethash "frontend_question_id" stat))
     ))
 
+(defun get-question-difficulty (quiz-stat)
+  (let ((difficulty (gethash "difficulty" quiz-stat)))
+    ;; 1 => easy; 2 => med; 3 => hard
+    (the fixnum (gethash "level" difficulty))
+    ))
+
+(defun get-question-paid-only (quiz-stat)
+  (the boolean (gethash "paid_only" quiz-stat)))
+
 (defun fetch-question-description (title-slug)
   (let ((out (make-string-output-stream)))
     (sb-ext:run-program "curl" `(,*leetcode-api*
@@ -84,6 +95,7 @@
       (the string (gethash "content" (gethash "question" (gethash "data" json-response)))))))
 
 (defun fetch-quiz-description-by-id (id)
+  "find the quiz has id in *leetcode-all-quiz*. fetch the description"
   (declare (fixnum id))
   (let ((all-quiz-list (if *leetcode-all-quiz*
                            *leetcode-all-quiz*
@@ -132,11 +144,26 @@
             link describe)
     ))
 
-(defun pick-one-quiz (&key difficult)
+(defun random-pick-one-quiz (&key difficulty)
+  "randomly try several times to pick the quiz match the difficulty (if it is given)"
+  (declare ((or null fixnum) difficulty))
   (let ((all-quiz-list (if *leetcode-all-quiz*
                            *leetcode-all-quiz*
                            (fetch-all-quiz-list :cache-file t))))
-    
+
+    (let ((try-time 10))
+      (loop repeat try-time ;; try many times in case infinity loop
+            for q = (nth (random (list-length all-quiz-list)) all-quiz-list)
+            when (and (not (get-question-paid-only q))
+                      (or (not difficulty) (= difficulty (get-question-difficulty q))))
+              return q
+            finally (error (format nil "try ~a times and got none" try-time))
+            ))
+    ))
+
+(defun refresh-quiz-cache-cli (cmd)
+  (when (clingon:getopt cmd :refresh)
+    (fetch-all-quiz-list :cache-file t)
     ))
 
 (defun get-quiz-description-cli-options ()
@@ -162,11 +189,6 @@
       :long-name "refresh"
       :key :refresh)))
 
-(defun refresh-quiz-cache-cli (cmd)
-  (when (clingon:getopt cmd :refresh)
-    (fetch-all-quiz-list :cache-file t)
-    ))
-
 (defun get-quiz-description-cli-handler (cmd)
   (refresh-quiz-cache-cli cmd)
   
@@ -191,6 +213,8 @@
            (format nil "https://leetcode.com/problems/~a/" title-slug))
           (format t "~a" (describe-clean describe))))
     ))
+
+;;:= need random-pick command here
 
 (defun leetcode-picker-cli ()
   (clingon:make-command
