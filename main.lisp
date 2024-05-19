@@ -63,6 +63,11 @@ when :cache-file is t, write all list in cache file for future use"
     (the string (gethash "question__title_slug" stat))
     ))
 
+(defun get-question-title (quiz-stat)
+  (let ((stat (gethash "stat" quiz-stat)))
+    (the string (gethash "question__title" stat))
+    ))
+
 (defun get-question-id (quiz-stat)
   (let ((stat (gethash "stat" quiz-stat)))
     (the fixnum (gethash "frontend_question_id" stat))
@@ -105,9 +110,9 @@ when :cache-file is t, write all list in cache file for future use"
                           (find-if (lambda (q) (= id (get-question-id q)))
                                    (the list all-quiz-list))))
       
-      (if (string= "" q-title-slug) (error "cannot find this id"))      
+      (if (string= "" q-title-slug) (error "cannot find this id"))
       
-      q-title-slug
+      (fetch-question-description q-title-slug)
       )))
 
 (defun describe-clean (describe)
@@ -115,9 +120,11 @@ when :cache-file is t, write all list in cache file for future use"
     (cl-ppcre:regex-replace-all "</{0,1}p>" <> "")
     (cl-ppcre:regex-replace-all "</{0,1}em>" <> "")
     (cl-ppcre:regex-replace-all "&nbsp;" <> "")
+    (cl-ppcre:regex-replace-all "</{0,1}ol>" <> "")
     
     (cl-ppcre:regex-replace-all "</{0,1}code>" <> "`")
     (cl-ppcre:regex-replace-all "</{0,1}strong.*?>" <> "**")
+    (cl-ppcre:regex-replace-all "</{0,1}b.*?>" <> "**")
     (cl-ppcre:regex-replace-all "</{0,1}pre>" <> "```")
     (cl-ppcre:regex-replace-all "[\\t]+<li>" <> "+ ")
     (cl-ppcre:regex-replace-all "&lt;=" <> "<=")
@@ -150,7 +157,7 @@ when :cache-file is t, write all list in cache file for future use"
   (let ((all-quiz-list (if *leetcode-all-quiz*
                            *leetcode-all-quiz*
                            (fetch-all-quiz-list :cache-file t))))
-
+    (setf *random-state* (make-random-state t))
     (let ((try-time 10))
       (loop repeat try-time ;; try many times in case infinity loop
             for q = (nth (random (list-length all-quiz-list)) all-quiz-list)
@@ -197,14 +204,12 @@ when :cache-file is t, write all list in cache file for future use"
     
     (let (title-slug
           describe)
-      (handler-case (fetch-quiz-description-by-id id)
+      (handler-case (setf describe (fetch-quiz-description-by-id id))
         (error ()
           ;; let fetch-all-quiz-list do again and update the cache file
           (setf *leetcode-all-quiz* nil) 
-          (fetch-quiz-description-by-id id))
+          (setf describe (fetch-quiz-description-by-id id)))
         (:no-error (title) (setf title-slug title)))
-
-      (setf describe (fetch-question-description title-slug))
 
       (if output
           (write-description-to-md-file
@@ -214,7 +219,59 @@ when :cache-file is t, write all list in cache file for future use"
           (format t "~a" (describe-clean describe))))
     ))
 
-;;:= need random-pick command here
+;;; (clingon:parse-command-line (leetcode-picker-cli) '("get-random-quiz" "-d" "easy" "-r"))
+(defun get-random-quiz-cli-options ()
+  `(,(clingon:make-option
+      :enum
+      :description "the difficulty of quiz"
+      :short-name #\d
+      :long-name "difficulty"
+      :key :difficulty
+      :items '(("easy" . 1)
+               ("medium" . 2)
+               ("hard" . 3)))
+    ,(clingon:make-option
+      :string
+      :description "output file"
+      :short-name #\o
+      :long-name "output"
+      :key :output
+      )
+    ,(clingon:make-option
+      :flag
+      :description "refresh the all quiz cache"
+      :short-name #\r
+      :long-name "refresh"
+      :key :refresh)))
+
+(defun get-random-quiz-cli-handler (cmd)
+  (refresh-quiz-cache-cli cmd)
+  (let ((d (clingon:getopt cmd :difficulty))
+        (output (clingon:getopt cmd :output))
+        quiz)
+    
+    (setf quiz (random-pick-one-quiz :difficulty d))
+
+    (let (title-slug describe)
+
+      (setf title-slug (get-question-title-slug quiz))
+
+      (setf describe (fetch-question-description title-slug))
+
+      (if output
+          (write-description-to-md-file
+           output
+           (describe-clean describe)
+           (format nil "https://leetcode.com/problems/~a/" title-slug))
+          (format t "Link: https://leetcode.com/problems/~a/
+ID: ~a
+Title: ~a
+~%~a"
+                  title-slug
+                  (get-question-id quiz)
+                  (get-question-title quiz)
+                  (describe-clean describe)))
+      )))
 
 (defun leetcode-picker-cli ()
   (clingon:make-command
@@ -227,6 +284,12 @@ when :cache-file is t, write all list in cache file for future use"
                      :description "pick the description of leetcode quiz"
                      :options (get-quiz-description-cli-options)
                      :handler #'get-quiz-description-cli-handler
+                     )
+                   ,(clingon:make-command
+                     :name "get-random-quiz"
+                     :description "pick a random leetcode quiz"
+                     :options (get-random-quiz-cli-options)
+                     :handler #'get-random-quiz-cli-handler
                      ))))
 
 (defun main ()
