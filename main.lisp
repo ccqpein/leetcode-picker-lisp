@@ -1,6 +1,6 @@
-(defpackage #:leetcode-picker
-  (:use #:CL #:arrow-macros)
-  (:export #:main)
+(defpackage :leetcode-picker
+  (:use :CL :arrow-macros)
+  (:export :main)
   )
 
 (in-package #:leetcode-picker)

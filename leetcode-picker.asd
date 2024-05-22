@@ -1,9 +1,9 @@
 ;;;; -*- Mode: Lisp -*-
 
-(defpackage #:leetcode-picker-sys
-  (:use #:CL #:asdf))
+(defpackage :leetcode-picker-sys
+  (:use :CL :asdf))
 
-(in-package #:leetcode-picker-sys)
+(in-package :leetcode-picker-sys)
 
 (defsystem leetcode-picker
   :defsystem-depends-on ("yason" "cl-ppcre" "arrow-macros" "clingon")
