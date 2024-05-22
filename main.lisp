@@ -73,6 +73,20 @@ when :cache-file is t, write all list in cache file for future use"
     (the fixnum (gethash "frontend_question_id" stat))
     ))
 
+(defun get-question-title-slug-by-id (id)
+  (declare (fixnum id))
+  (let ((all-quiz-list (if *leetcode-all-quiz*
+                           *leetcode-all-quiz*
+                           (fetch-all-quiz-list :cache-file t))))
+    
+    (let (q-title-slug)
+      (setf q-title-slug (get-question-title-slug
+                          (find-if (lambda (q) (= id (get-question-id q)))
+                                   (the list all-quiz-list))))
+      
+      (if (string= "" q-title-slug) (error "cannot find this id"))
+      q-title-slug)))
+
 (defun get-question-difficulty (quiz-stat)
   (let ((difficulty (gethash "difficulty" quiz-stat)))
     ;; 1 => easy; 2 => med; 3 => hard
@@ -102,18 +116,11 @@ when :cache-file is t, write all list in cache file for future use"
 (defun fetch-quiz-description-by-id (id)
   "find the quiz has id in *leetcode-all-quiz*. fetch the description"
   (declare (fixnum id))
-  (let ((all-quiz-list (if *leetcode-all-quiz*
-                           *leetcode-all-quiz*
-                           (fetch-all-quiz-list :cache-file t))))
-    (let (q-title-slug)
-      (setf q-title-slug (get-question-title-slug
-                          (find-if (lambda (q) (= id (get-question-id q)))
-                                   (the list all-quiz-list))))
-      
-      (if (string= "" q-title-slug) (error "cannot find this id"))
-      
-      (fetch-question-description q-title-slug)
-      )))
+  (let (q-title-slug)
+    (setf q-title-slug (get-question-title-slug-by-id id))
+    
+    (fetch-question-description q-title-slug)
+    ))
 
 (defun describe-clean (describe)
   (-<> describe
@@ -204,13 +211,15 @@ when :cache-file is t, write all list in cache file for future use"
     
     (let (title-slug
           describe)
-      (handler-case (setf describe (fetch-quiz-description-by-id id))
+      (handler-case (setf title-slug (get-question-title-slug-by-id id))
         (error ()
           ;; let fetch-all-quiz-list do again and update the cache file
           (setf *leetcode-all-quiz* nil) 
-          (setf describe (fetch-quiz-description-by-id id)))
+          (setf title-slug (get-question-title-slug-by-id id)))
         (:no-error (title) (setf title-slug title)))
 
+      (setf describe (fetch-question-description title-slug))
+      
       (if output
           (write-description-to-md-file
            output
