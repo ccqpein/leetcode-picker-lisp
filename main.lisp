@@ -1,5 +1,10 @@
 (defpackage :leetcode-picker
   (:use :CL :arrow-macros)
+
+  (:import-from
+   :jkl-cmd
+   :curl)
+  
   (:export :main)
   )
 
@@ -33,14 +38,12 @@
   "fetch tha all quiz list from leetcode with token and session.
 when :cache-file is t, write all list in cache file for future use"
   (let ((out (make-string-output-stream)))
-    (sb-ext:run-program "curl" `(,*leetcode-all-quiz-url*
-                                 "-H" ,(format nil "Cookie: csrftoken=~a;LEETCODE_SESSION=~a"
-                                               *leetcode-token*
-                                               *leetcode-session*)
-                                 )
-                        :search t
-                        :output out
-                        :error nil)
+    (curl *leetcode-all-quiz-url* :H (format nil "Cookie: csrftoken=~a;LEETCODE_SESSION=~a"
+                                             *leetcode-token*
+                                             *leetcode-session*)
+                                  :jkl-output out
+                                  :jkl-error nil)
+    
     (let* ((response (get-output-stream-string out))
            (json-response (yason:parse response))
            (all-stat-status-pairs (the list (gethash "stat_status_pairs" json-response))))
@@ -98,17 +101,17 @@ when :cache-file is t, write all list in cache file for future use"
 
 (defun fetch-question-description (title-slug)
   (let ((out (make-string-output-stream)))
-    (sb-ext:run-program "curl" `(,*leetcode-api*
-                                 "-H" "content-type: application/json"
-                                 "-H" ,(format nil "Referer: https://leetcode.com/problems/~a/" title-slug)
-                                 "-H" ,(format nil "Cookie: csrftoken=~a;LEETCODE_SESSION=~a"
-                                               *leetcode-token*
-                                               *leetcode-session*)
-                                 "--data-raw"
-                                 ,(format nil "{\"operationName\":\"questionData\",\"variables\":{\"titleSlug\":\"~a\"},\"query\":\"query questionData($titleSlug: String!) { question(titleSlug: $titleSlug) { content } }\"}" title-slug))
-                        :search t
-                        :output out
-                        :error nil)
+    (curl *leetcode-api*
+          :H "content-type: application/json"
+          :H (format nil "Referer: https://leetcode.com/problems/~a/" title-slug)
+          :H (format nil "Cookie: csrftoken=~a;LEETCODE_SESSION=~a"
+                     *leetcode-token*
+                     *leetcode-session*)
+          :data-raw (format nil "{\"operationName\":\"questionData\",\"variables\":{\"titleSlug\":\"~a\"},\"query\":\"query questionData($titleSlug: String!) { question(titleSlug: $titleSlug) { content } }\"}" title-slug)
+          
+          :jkl-output out
+          :jkl-error nil
+          )
     (let* ((response (get-output-stream-string out))
            (json-response (yason:parse response)))
       (the string (gethash "content" (gethash "question" (gethash "data" json-response)))))))
