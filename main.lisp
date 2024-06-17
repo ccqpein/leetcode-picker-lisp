@@ -15,7 +15,7 @@
 (defparameter *leetcode-all-quiz-url* "https://leetcode.com/api/problems/all/")
 (defparameter *leetcode-api* "https://leetcode.com/graphql")
 
-(defparameter *vault-path* (sb-posix:getcwd))
+(defparameter *vault-path* #.(uiop:pathname-directory-pathname (uiop/lisp-build:current-lisp-file-pathname)))
 (defparameter *leetcode-token*
   (car (uiop:read-file-lines (format nil "~a/vault/leetcode-token" *vault-path*)))
   "cookies csrftoken")
@@ -89,6 +89,15 @@ when :cache-file is t, write all list in cache file for future use"
       
       (if (string= "" q-title-slug) (error "cannot find this id"))
       q-title-slug)))
+
+(defun get-question-by-id (id)
+  "get the question of id"
+  (declare (fixnum id))
+  (let ((all-quiz-list (if *leetcode-all-quiz*
+                           *leetcode-all-quiz*
+                           (fetch-all-quiz-list :cache-file t))))
+    (find-if (lambda (q) (= id (get-question-id q)))
+             (the list all-quiz-list))))
 
 (defun get-question-difficulty (quiz-stat)
   (let ((difficulty (gethash "difficulty" quiz-stat)))
@@ -213,14 +222,15 @@ when :cache-file is t, write all list in cache file for future use"
         (output (clingon:getopt cmd :output)))
     
     (let (title-slug
-          describe)
-      (handler-case (setf title-slug (get-question-title-slug-by-id id))
-        (error ()
-          ;; let fetch-all-quiz-list do again and update the cache file
-          (setf *leetcode-all-quiz* nil) 
-          (setf title-slug (get-question-title-slug-by-id id)))
-        (:no-error (title) (setf title-slug title)))
+          describe
+          (quiz (get-question-by-id id)))
 
+      (unless quiz
+        (setf *leetcode-all-quiz* nil
+              quiz (get-question-by-id id)))
+
+      (setf title-slug (get-question-title-slug quiz))
+      
       (setf describe (fetch-question-description title-slug))
       
       (if output
@@ -228,7 +238,14 @@ when :cache-file is t, write all list in cache file for future use"
            output
            (describe-clean describe)
            (format nil "https://leetcode.com/problems/~a/" title-slug))
-          (format t "~a" (describe-clean describe))))
+          (format t "Link: https://leetcode.com/problems/~a/
+ID: ~a
+Title: ~a
+~%~a"
+                  title-slug
+                  (get-question-id quiz)
+                  (get-question-title quiz)
+                  (describe-clean describe))))
     ))
 
 ;;; (clingon:parse-command-line (leetcode-picker-cli) '("get-random-quiz" "-d" "easy" "-r"))
