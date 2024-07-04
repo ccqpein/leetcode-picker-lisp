@@ -138,15 +138,18 @@ when :cache-file is t, write all list in cache file for future use"
   (-<> describe
     (cl-ppcre:regex-replace-all "</{0,1}p>" <> "")
     (cl-ppcre:regex-replace-all "</{0,1}em>" <> "")
-    (cl-ppcre:regex-replace-all "&nbsp;" <> "")
-    (cl-ppcre:regex-replace-all "</{0,1}ol>" <> "")
     
+    (cl-ppcre:regex-replace-all "&nbsp;" <> "")
+    (cl-ppcre:regex-replace-all "&gt;" <> ">")
+    (cl-ppcre:regex-replace-all "&quot;" <> "\"")
+    (cl-ppcre:regex-replace-all "&lt;" <> "<")
+
+    (cl-ppcre:regex-replace-all "</{0,1}ol>" <> "")
     (cl-ppcre:regex-replace-all "</{0,1}code>" <> "`")
     (cl-ppcre:regex-replace-all "</{0,1}strong.*?>" <> "**")
     (cl-ppcre:regex-replace-all "</{0,1}b.*?>" <> "**")
     (cl-ppcre:regex-replace-all "</{0,1}pre>" <> "```")
     (cl-ppcre:regex-replace-all "[\\t]+<li>" <> "+ ")
-    (cl-ppcre:regex-replace-all "&lt;=" <> "<=")
     (cl-ppcre:regex-replace-all "<sup>" <> "^")
     
     (cl-ppcre:regex-replace-all "((</sup>)|(</li>))" <> "")
