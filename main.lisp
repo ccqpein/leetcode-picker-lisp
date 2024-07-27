@@ -1,5 +1,5 @@
 (defpackage :leetcode-picker
-  (:use :CL :arrow-macros)
+  (:use :CL :arrow-macros :str)
 
   (:import-from
    :jkl-cmd
@@ -157,6 +157,33 @@ when :cache-file is t, write all list in cache file for future use"
 
     (cl-ppcre:regex-replace-all "&#39;" <> "'")
     ))
+
+(defun multiline-content-tag (content tag replace-to)
+  "content should be multiline text wall"
+  ((str:lines content))
+  )
+
+(defun multiline-content-tag-root (content-lines tag tag-end replace-to &optional ignore)
+  "filter the tag, the root level. deeper levels will ignore"
+  (do ((line (car content-lines) (car content-lines))
+       header body tail
+       (this header))
+      ((not line) (append (reverse header) body tail))
+
+    (str:match line
+      ((a tag b)
+       (push (str:concat a replace-to b) this)
+       
+       (setf this tail)
+       )
+      ((a ))
+      (_ (push line this)))
+    
+    (setf content-lines (cdr content-lines)))
+  (loop for line in content-lines
+        if (cl-ppcre:scan-to-strings tag line)
+          do (push line head))
+  )
 
 (defun write-description-to-md-file (file describe link)
   (with-open-file (file (pathname (format nil "~a/~a" (sb-posix:getcwd) file))
