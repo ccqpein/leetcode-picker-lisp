@@ -156,34 +156,37 @@ when :cache-file is t, write all list in cache file for future use"
     (cl-ppcre:regex-replace-all "</{0,1}ul>" <> "")
 
     (cl-ppcre:regex-replace-all "&#39;" <> "'")
+
+    (cl-ppcre:scan-to-strings "([\\s\\S*])<div class=\"example-block\">([\\s\\S]*)</div>" <>)
     ))
 
-(defun multiline-content-tag (content tag replace-to)
-  "content should be multiline text wall"
-  ((str:lines content))
-  )
+;; (defun multiline-content-tag (content tag replace-to)
+;;   "content should be multiline text wall"
+;;   ((str:lines content))
+;;   )
 
-(defun multiline-content-tag-root (content-lines tag tag-end replace-to &optional ignore)
-  "filter the tag, the root level. deeper levels will ignore"
-  (do ((line (car content-lines) (car content-lines))
-       header body tail
-       (this header))
-      ((not line) (append (reverse header) body tail))
+;; (defun multiline-content-tag-root (content-lines tag whole-tag tag-end replace-to &optional ignore)
+;;   "filter the tag, the root level. deeper levels will ignore"
+;;   (do ((line (car content-lines) (car content-lines))
+;;        header body tail
+;;        (this header))
+;;       ((not line) (values (reverse header) body tail))
 
-    (str:match line
-      ((a tag b)
-       (push (str:concat a replace-to b) this)
-       
-       (setf this tail)
-       )
-      ((a ))
-      (_ (push line this)))
+;;     (str:match line
+;;       ((a whole-tag b)
+;;        (push (str:concat a replace-to b) this)       
+;;        (setf this body)
+;;        (setf content-lines (cdr content-lines))
+;;        )
+;;       ((a "<" tag _)
+;;        (multiple-value-bind (h b tt)
+;;            (multiline-content-tag-root content-lines tag)
+         
+;;          )
+;;        )
+;;       (_ (push line this)))
     
-    (setf content-lines (cdr content-lines)))
-  (loop for line in content-lines
-        if (cl-ppcre:scan-to-strings tag line)
-          do (push line head))
-  )
+;;     ))
 
 (defun write-description-to-md-file (file describe link)
   (with-open-file (file (pathname (format nil "~a/~a" (sb-posix:getcwd) file))
