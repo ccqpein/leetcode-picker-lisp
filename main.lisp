@@ -316,6 +316,47 @@ Title: ~a
                   (describe-clean describe)))
       )))
 
+(defun create-quiz-folder-options ()
+  `(,(clingon:make-option
+      :integer
+      :description "the id of quiz"
+      :short-name #\n
+      :long-name "id"
+      :required t
+      :key :id
+      )
+    ,(clingon:make-option
+      :flag
+      :description "refresh the all quiz cache"
+      :short-name #\r
+      :long-name "refresh"
+      :key :refresh)))
+
+(defun create-quiz-folder-handler (cmd)
+  (refresh-quiz-cache-cli cmd)
+
+  (let* (title-slug
+         describe
+         (id (clingon:getopt cmd :id))
+         (quiz (get-question-by-id id)))
+    
+    (unless quiz
+      (setf *leetcode-all-quiz* nil
+            quiz (get-question-by-id id)))
+
+    (setf title-slug (get-question-title-slug quiz))
+
+    (setf describe (fetch-question-description title-slug))
+
+    (ensure-directories-exist
+     (format nil "~a/" title-slug))
+
+    (write-description-to-md-file
+     (format nil "~a/~a" title-slug "README.md")
+     (describe-clean describe)
+     (format nil "https://leetcode.com/problems/~a/" title-slug))
+    ))
+
 (defun leetcode-picker-cli ()
   (clingon:make-command
    :name "leetcode-picker"
@@ -333,6 +374,12 @@ Title: ~a
                      :description "pick a random leetcode quiz"
                      :options (get-random-quiz-cli-options)
                      :handler #'get-random-quiz-cli-handler
+                     )
+                   ,(clingon:make-command
+                     :name "create-quiz-folder"
+                     :description "create quiz folder with describe in current folder"
+                     :options (create-quiz-folder-options)
+                     :handler #'create-quiz-folder-handler
                      ))))
 
 (defun main ()
